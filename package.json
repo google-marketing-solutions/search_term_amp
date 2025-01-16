@@ -1,0 +1,22 @@
+{
+  "name": "search_term_amplifier",
+  "version": "1.0.0",
+  "description": "An Ads Script solution that extracts keywords from search term(query) report and adds the queried keywords to a specified campaign and ad group.",
+  "main": "search_term_amplifier.js",
+  "scripts": {
+    "test": "jasmine"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/google-marketing-solutions/search_term_amplifier"
+  },
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@types/google-ads-scripts": "^1.0.6",
+    "@types/google-apps-script": "^1.0.83"
+  },
+  "devDependencies": {
+    "jasmine": "^5.5.0"
+  }
+}
