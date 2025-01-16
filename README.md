@@ -31,13 +31,15 @@ To deploy the script:
 1.  Copy it into the
     [Google Ads script editor](https://support.google.com/google-ads/answer/188712)
 
-2.  Edit the script's constants and parameters to reflect your preferences and
+2.  Remove the `exports` block at the bottom of the script.
+
+3.  Edit the script's constants and parameters to reflect your preferences and
     requirements.
 
-3.  Test that the script will preform the correct actions by using the preview
+4.  Test that the script will preform the correct actions by using the preview
     function of the scripts editor.
 
-4.  *Optional*
+5.  *Optional*
     [Schedule the script](https://support.google.com/google-ads/answer/188712?hl=en#:~:text=run%20it%20again.-,Scheduling%20a%20script,-Once%20you%27ve%20created)
     to run on a regular basis automatically.
 

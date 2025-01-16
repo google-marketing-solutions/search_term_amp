@@ -236,7 +236,7 @@ const IGNORE_WORDS = [];
  */
 function main() {
   const errors = [];
-  let createdKeywordCount = 0;
+  const createdKeywords = [];
 
   createLabels();
 
@@ -278,23 +278,22 @@ function main() {
       adGroupsIteratorToAddSearchKeywords.next();
 
     if (IS_NEGATIVE_KEYWORDS) {
-      const error = addNegativeKeywordsToAdGroup(
+      const [newKeywords, error] = addNegativeKeywordsToAdGroup(
         keywords,
         ADDED_KEYWORDS_MATCH_TYPE,
         adGroupToAddSearchKeywords,
       );
       errors.push(...error);
-      let reportMessage = `${SCRIPT_NAME} completed.`;
       sendReportingEmail(
-        errors.length > 0,
         SCRIPT_NAME,
         MAIL_RECIPIENTS,
-        reportMessage,
+        newKeywords,
+        errors,
       );
       return;
     }
-    const [count, error] = addNewKeywords(keywords, adGroupToAddSearchKeywords);
-    createdKeywordCount += count;
+    const [newKeywords, error] = addNewKeywords(keywords, adGroupToAddSearchKeywords);
+    createdKeywords.push(...newKeywords);
     errors.push(...error);
   } else {
     for (const adGroup of adGroupsToExtractSearchTerms) {
@@ -307,15 +306,16 @@ function main() {
         Logger.log('No search terms found for %s.', adGroup.getName());
       } else {
         if (IS_NEGATIVE_KEYWORDS) {
-          const error = addNegativeKeywordsToAdGroup(
+          const [newKeywords, error] = addNegativeKeywordsToAdGroup(
             keywords,
             ADDED_KEYWORDS_MATCH_TYPE,
             adGroup,
           );
+          createdKeywords.push(...newKeywords);
           errors.push(...error);
         } else {
-          const [count, error] = addNewKeywords(keywords, adGroup);
-          createdKeywordCount += count;
+          const [newKeywords, error] = addNewKeywords(keywords, adGroup);
+          createdKeywords.push(...newKeywords);
           errors.push(...error);
         }
       }
@@ -323,15 +323,13 @@ function main() {
   }
 
   if (errors.length > 0) {
-    const message = `Failed to update some keywords:\n\n ${errors.join('\n')}`;
-
-    Logger.log(message);
-    MAIL_RECIPIENTS.length > 0 &&
-      sendReportingEmail(false, SCRIPT_NAME, MAIL_RECIPIENTS, message);
+    Logger.log(`Failed to update some keywords:\n\n ${errors.join('\n')}`);
   } else {
-    const message = `${createdKeywordCount} keywords added to the account\n\n`;
-    MAIL_RECIPIENTS.length > 0 &&
-      sendReportingEmail(true, SCRIPT_NAME, MAIL_RECIPIENTS, message);
+    Logger.log(`${createdKeywords.length} keywords added to the account\n\n`);
+  }
+
+  if (MAIL_RECIPIENTS.length > 0) {
+      sendReportingEmail(SCRIPT_NAME, MAIL_RECIPIENTS, createdKeywords, errors);
   }
 }
 
@@ -593,14 +591,14 @@ function findKeyword(adGroup, keyword, matchType) {
  * in the given array of keywords, one per match type. Otherwise, only one new
  * keyword is created.
  *
- * @param {!Array<!AdsApp.Keyword>} keywords The keywords to add to the Ad Group.
+ * @param {!Array<string>} keywords The keywords to add to the Ad Group.
  * @param {!AdsApp.AdGroup} adGroup The Ad Group to add the new keywords to.
  *
- * @return {!Array<number, !Array<!Error>>} The number of keywords successfully created
+ * @return {!Array<!AdsApp.Keyword, !Array<!Error>>} The successfully created keywords
  *   and the errors encountered while creating the keywords.
  */
 function addNewKeywords(keywords, adGroup) {
-  let createdKeywordCount = 0;
+  const createdKeywords = [];
   const errors = [];
   let matchTypes;
   if (ADDED_KEYWORDS_MATCH_TYPE === 'ALL') {
@@ -609,7 +607,7 @@ function addNewKeywords(keywords, adGroup) {
     matchTypes = [ADDED_KEYWORDS_MATCH_TYPE];
   }
   for (const matchType of matchTypes) {
-    const [error, createdKeywords] = addKeywordsToAdGroup(
+    const [error, newKeywords] = addKeywordsToAdGroup(
       keywords,
       matchType,
       adGroup,
@@ -620,11 +618,11 @@ function addNewKeywords(keywords, adGroup) {
       SET_MOBILE_FINAL_URL,
       OVERWRITE_KEYWORDS,
     );
-    createdKeywordCount += createdKeywords.length;
-    error && errors.push(error);
+    createdKeywords.push(...newKeywords);
+    errors.push(...error);
   }
 
-  return [createdKeywordCount, errors];
+  return [createdKeywords, errors];
 }
 
 /**
@@ -728,7 +726,39 @@ function addKeywordsToAdGroup(
  * @return {!Array<?Array<?string>>} errors
  */
 function addNegativeKeywordsToAdGroup(keywords, matchType, adGroup) {
+  class NegativeKeyword {
+    /**
+     * Creates a new instance of a NegativeKeyword.
+     *
+     * @param {!AdsApp.AdGroup} adGroup The AdGroup the keyword was added to.
+     * @param {string} text The text of the keyword.
+     * @param {string} matchType The keyword match type.
+     */
+    constructor(adGroup, text, matchType) {
+      this.adGroup = adGroup;
+      this.text = text;
+      this.matchType = matchType;
+    }
+
+    getCampaign() {
+      return this.adGroup.getCampaign();
+    }
+
+    getAdGroup() {
+      return this.adGroup;
+    }
+
+    getText() {
+      return this.text + ' [NEGATIVE]';
+    }
+
+    getMatchType() {
+      return this.matchType;
+    }
+  }
+
   const errors = [];
+  const addedKeywords = [];
 
   for (const keyword of keywords) {
     const existingKeyword = findKeyword(adGroup, keyword, matchType);
@@ -748,6 +778,7 @@ function addNegativeKeywordsToAdGroup(keywords, matchType, adGroup) {
         keywordAppliedMatchType,
         adGroup.getName(),
       );
+      addedKeywords.push(new NegativeKeyword(adGroup, keyword, matchType));
     } catch (e) {
       const error = [
         JSON.stringify(e),
@@ -758,39 +789,87 @@ function addNegativeKeywordsToAdGroup(keywords, matchType, adGroup) {
     }
   }
 
-  return errors;
+  return [addedKeywords, errors];
 }
 
 /**
- * Send email
+ * Sends and email with the script results.
  *
- * @param {boolean} isSucceeded
+ * The email has a table with the new keywords in the format:
+ *
+ *   | # |    Campaign Name     |   Ad Group Name   | New Keyword | Match Type |│
+ *   |---|----------------------|-------------------|-------------|------------|│
+ *   | 1 | Animals (1016150843) | Cat (52781116231) | be kind     | BROAD      |│
+ *
  * @param {string} scriptName
- * @param {!Array<string>} recipients - list of mailing addresses for receivers
- * @param {string=} message
+ * @param {!Array<string>} recipients A list of email addresses for receivers
+ * @param {!Array<!AdsApp.Keyword>} keywordList The list of keywords added.
+ * @param {!Array<string>} errors The errors that occurred during execution.
  */
-function sendReportingEmail(isSucceeded, scriptName, recipients, message) {
+function sendReportingEmail(scriptName, recipients, keywordList, errors) {
   const accountName = AdsApp.currentAccount().getName();
   const customerId = AdsApp.currentAccount().getCustomerId();
 
-  let subject = isSucceeded ? '[SUCCEEDED]' : '[FAILED]';
-  subject =
-    subject +
-    ` Ads scripts: ${scriptName} executed on ${accountName}: ${customerId}`;
-
-  const firstLine =
-    'Please go to your account and check script history for ' + 'details\n\n';
-  if (message) {
-    message = `${firstLine} + ${message}`;
+  if (keywordList.length === 0 && errors.length > 0) {
+    subject = '[FAILED]';
+  } else if (errors.length > 0) {
+    subject = '[SUCCEEDED with errors]';
   } else {
-    message = firstLine;
+    subject = '[SUCCEEDED]';
+  }
+  subject = subject + ' Ads scripts: ' + scriptName +
+    ' executed on ' + accountName + ': ' + customerId;
+
+  const messageBody = [];
+  messageBody.push('<!doctype html>\n\n<html><body>');
+    const queryPredicates = GAQL_QUERY_SEARCH_TERM.split("WHERE")[1]?.split(/ORDER BY|LIMIT|PARAMETERS/)[0].trim();
+  if (queryPredicates) {
+    messageBody.push('<p>The Performance Criteria used <i>' + queryPredicates + '</i></p>');
   }
 
-  MailApp.sendEmail(recipients.join(','), subject, message);
+  if (keywordList.length === 0) {
+    messageBody.push('No keywords were added to the account.');
+  } else {
+    messageBody.push(`<table border="1" cellpadding="10">
+<caption>Keywords added to the account</caption>
+<thead><tr>
+  <th scope="col">#</th>
+  <th scope="col">Campaign Name</th>
+  <th scope="col">Ad Group Name</th>
+  <th scope="col">New Keyword</th>
+  <th scope="col">Match Type</th>
+</tr></thead>
+<tbody>
+`);
+    let counter = 1;
+    for (const keyword of keywordList) {
+      const campaign = keyword.getCampaign();
+      const adGroup = keyword.getAdGroup();
+      messageBody.push(`<tr><td>${counter++}</td>
+<td>${campaign.getName()}(${campaign.getId()})</td>
+<td>${adGroup.getName()}(${adGroup.getId()})</td>
+<td>${keyword.getText()}</td>
+<td>${keyword.getMatchType()}</td></tr>`);
+    }
+    messageBody.push('</tbody></table>');
+  }
+
+  if (errors.length > 0) {
+    messageBody.push('<p>The following errors occurred:<br><ul>');
+    messageBody.push(errors.map(e => `<li>${e}</li>`).join(''));
+    messageBody.push('</ul></p>');
+  }
+  messageBody.push('<p>Please go to your account and check script history for more details</p></body></html>');
+  MailApp.sendEmail({
+    to: recipients.join(','),
+    subject: subject,
+    htmlBody: messageBody.join('\n'),
+  });
+
   Logger.log('Reporting mail sent');
 }
 
-// Exports are only needed for unit testing.
+// Exports are only needed for unit testing and MUST be removed for deployment.
 exports.LABELS = LABELS;
 exports.IGNORE_WORDS = IGNORE_WORDS;
 exports.ADDED_KEYWORDS_MATCH_TYPE = ADDED_KEYWORDS_MATCH_TYPE;
@@ -805,3 +884,4 @@ exports.getAdsAppAdGroups = getAdsAppAdGroups;
 exports.addNegativeKeywordsToAdGroup = addNegativeKeywordsToAdGroup;
 exports.createKeyword = createKeyword;
 exports.addKeywordsToAdGroup = addKeywordsToAdGroup;
+exports.sendReportingEmail = sendReportingEmail;

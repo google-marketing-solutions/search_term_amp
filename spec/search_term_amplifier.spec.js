@@ -284,10 +284,10 @@ describe('getCampaignNames', () => {
         },
       },
     ];
-    const adsAdpSpy = jasmine.createSpyObj('AdsApp', {
+    const adsAppSpy = jasmine.createSpyObj('AdsApp', {
       campaigns: fakeCampaigns,
     });
-    jasmine.getGlobal().AdsApp = adsAdpSpy;
+    jasmine.getGlobal().AdsApp = adsAppSpy;
     const got = sta.getCampaignNames();
     expect(got).toHaveSize(2);
     expect(got).toContain('a');
@@ -549,13 +549,14 @@ describe('addNegativeKeywordsToAdGroup', () => {
     keywords,
     existingKeywords,
     expectedCreateCalls,
+    expectedReturnSize,
   ) => {
     adGroupSpy.createNegativeKeyword.calls.reset();
     adGroupSpy.get.and.returnValue(new FakeAdsIterator(existingKeywords));
 
     expect(
-      sta.addNegativeKeywordsToAdGroup(keywords, 'BROAD', adGroupSpy),
-    ).toHaveSize(0);
+      sta.addNegativeKeywordsToAdGroup(keywords, 'BROAD', adGroupSpy)[0],
+    ).toHaveSize(expectedReturnSize);
     expect(adGroupSpy.createNegativeKeyword).toHaveBeenCalledTimes(
       expectedCreateCalls,
     );
@@ -565,12 +566,12 @@ describe('addNegativeKeywordsToAdGroup', () => {
   };
 
   it('does nothing if no keywords are provided', () => {
-    testAddNegativeKeywords([], [], 0);
+    testAddNegativeKeywords([], [], 0, 0);
   });
 
   it('adds negative keywords when the provided keywords do not exist', () => {
-    testAddNegativeKeywords(['fake keyword'], [], 1);
-    testAddNegativeKeywords(['first keyword', 'second keyword'], [], 2);
+    testAddNegativeKeywords(['fake keyword'], [], 1, 1);
+    testAddNegativeKeywords(['first keyword', 'second keyword'], [], 2, 2);
   });
 
   it('removes old keywords before creating new negative ones', () => {
@@ -586,13 +587,14 @@ describe('addNegativeKeywordsToAdGroup', () => {
     );
     fakeKeywordSpy.remove.calls.reset();
 
-    testAddNegativeKeywords(['fake keyword'], [fakeKeywordSpy], 1);
+    testAddNegativeKeywords(['fake keyword'], [fakeKeywordSpy], 1, 1);
     expect(fakeKeywordSpy.remove).toHaveBeenCalledTimes(1);
     fakeKeywordSpy.remove.calls.reset();
 
     testAddNegativeKeywords(
       ['first keyword', 'second keyword'],
       [fakeKeywordSpy],
+      2,
       2,
     );
   });
@@ -913,3 +915,114 @@ describe('addKeywordsToAdGroup', () => {
     }
   });
 });
+
+describe('sendReportingEmail', () => {
+  const fakeAccountName = 'Test Account';
+  const fakeCustomerId = '1234567890';
+  let mailAppSpy;
+
+  beforeEach(() => {
+    const adsAppSpy = jasmine.createSpyObj('AdsApp', ['currentAccount', 'getName', 'getCustomerId']);
+    adsAppSpy.currentAccount.and.returnValue(adsAppSpy);
+    adsAppSpy.getName.and.returnValue(fakeAccountName);
+    adsAppSpy.getCustomerId.and.returnValue(fakeCustomerId);
+    jasmine.getGlobal().AdsApp = adsAppSpy;
+
+    mailAppSpy = jasmine.createSpyObj('MailApp', ['sendEmail']);
+    jasmine.getGlobal().MailApp = mailAppSpy;
+  });
+
+  it('sends the no keywords email if no keywords are added and there are no errors', () => {
+    sta.sendReportingEmail('test script', ['a@example.com'], [], []);
+    expect(mailAppSpy.sendEmail).toHaveBeenCalledTimes(1);
+    const callArgs = mailAppSpy.sendEmail.calls.first().args[0];
+    expect(callArgs.subject).toContain('[SUCCEEDED]');
+    expect(callArgs.htmlBody).toContain('No keywords were added to the account');
+  });
+
+  it('sends a success email with no errors', () => {
+    const scriptName = 'Test Script';
+    const recipients = ['test@example.com'];
+    const keywordList = [
+      jasmine.createSpyObj('Keyword', [
+        'getCampaign',
+        'getAdGroup',
+        'getText',
+        'getMatchType',
+      ]),
+    ];
+    const errors = [];
+
+    const mockCampaign = jasmine.createSpyObj('Campaign', ['getName', 'getId']);
+    mockCampaign.getName.and.returnValue('Test Campaign');
+    mockCampaign.getId.and.returnValue('1111111111');
+    keywordList[0].getCampaign.and.returnValue(mockCampaign);
+
+    const mockAdGroup = jasmine.createSpyObj('AdGroup', ['getName', 'getId']);
+    mockAdGroup.getName.and.returnValue('Test Ad Group');
+    mockAdGroup.getId.and.returnValue('2222222222');
+    keywordList[0].getAdGroup.and.returnValue(mockAdGroup);
+
+    keywordList[0].getText.and.returnValue('test keyword');
+    keywordList[0].getMatchType.and.returnValue('BROAD');
+
+    sta.sendReportingEmail(scriptName, recipients, keywordList, errors);
+
+    expect(mailAppSpy.sendEmail).toHaveBeenCalledTimes(1);
+    const callArgs = mailAppSpy.sendEmail.calls.first().args[0];
+    expect(callArgs.subject).toEqual('[SUCCEEDED] Ads scripts: Test Script executed on Test Account: 1234567890');
+    expect(callArgs.htmlBody).toContain('Keywords added to the account');
+    expect(callArgs.htmlBody).not.toContain('The following errors occurred');
+  });
+
+  it('sends a success email with errors', () => {
+    const scriptName = 'Test Script';
+    const recipients = ['test@example.com'];
+    const keywordList = [
+      jasmine.createSpyObj('Keyword', [
+        'getCampaign',
+        'getAdGroup',
+        'getText',
+        'getMatchType',
+      ]),
+    ];
+    const errors = ['Error 1', 'Error 2'];
+
+    const mockCampaign = jasmine.createSpyObj('Campaign', ['getName', 'getId']);
+    mockCampaign.getName.and.returnValue('Test Campaign');
+    mockCampaign.getId.and.returnValue('1111111111');
+    keywordList[0].getCampaign.and.returnValue(mockCampaign);
+
+    const mockAdGroup = jasmine.createSpyObj('AdGroup', ['getName', 'getId']);
+    mockAdGroup.getName.and.returnValue('Test Ad Group');
+    mockAdGroup.getId.and.returnValue('2222222222');
+    keywordList[0].getAdGroup.and.returnValue(mockAdGroup);
+
+    keywordList[0].getText.and.returnValue('test keyword');
+    keywordList[0].getMatchType.and.returnValue('BROAD');
+
+    sta.sendReportingEmail(scriptName, recipients, keywordList, errors);
+
+    expect(mailAppSpy.sendEmail).toHaveBeenCalledTimes(1);
+    const callArgs = mailAppSpy.sendEmail.calls.first().args[0];
+    expect(callArgs.subject).toEqual('[SUCCEEDED with errors] Ads scripts: Test Script executed on Test Account: 1234567890');
+    expect(callArgs.htmlBody).toContain('Keywords added to the account');
+    expect(callArgs.htmlBody).toContain('The following errors occurred');
+  });
+
+  it('sends a failure email with no keywords', () => {
+    const scriptName = 'Test Script';
+    const recipients = ['test@example.com'];
+    const keywordList = [];
+    const errors = ['Error 1', 'Error 2'];
+
+    sta.sendReportingEmail(scriptName, recipients, keywordList, errors);
+
+    expect(mailAppSpy.sendEmail).toHaveBeenCalledTimes(1);
+    const callArgs = mailAppSpy.sendEmail.calls.first().args[0];
+    expect(callArgs.subject).toEqual('[FAILED] Ads scripts: Test Script executed on Test Account: 1234567890');
+    expect(callArgs.htmlBody).toContain('No keywords were added to the account');
+    expect(callArgs.htmlBody).toContain('The following errors occurred');
+  });
+});
+
