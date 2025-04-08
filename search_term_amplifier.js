@@ -870,18 +870,18 @@ function sendReportingEmail(scriptName, recipients, keywordList, errors) {
 }
 
 // Exports are only needed for unit testing and MUST be removed for deployment.
-exports.LABELS = LABELS;
-exports.IGNORE_WORDS = IGNORE_WORDS;
-exports.ADDED_KEYWORDS_MATCH_TYPE = ADDED_KEYWORDS_MATCH_TYPE;
-exports.hasLabel = hasLabel;
-exports.createLabels = createLabels;
-exports.findKeyword = findKeyword;
-exports.applyMatchType = applyMatchType;
-exports.getAdGroupResourceId = getAdGroupResourceId;
-exports.getCampaignNames = getCampaignNames;
-exports.fetchSearchTerms = fetchSearchTerms;
-exports.getAdsAppAdGroups = getAdsAppAdGroups;
-exports.addNegativeKeywordsToAdGroup = addNegativeKeywordsToAdGroup;
-exports.createKeyword = createKeyword;
-exports.addKeywordsToAdGroup = addKeywordsToAdGroup;
-exports.sendReportingEmail = sendReportingEmail;
+// exports.LABELS = LABELS;
+// exports.IGNORE_WORDS = IGNORE_WORDS;
+// exports.ADDED_KEYWORDS_MATCH_TYPE = ADDED_KEYWORDS_MATCH_TYPE;
+// exports.hasLabel = hasLabel;
+// exports.createLabels = createLabels;
+// exports.findKeyword = findKeyword;
+// exports.applyMatchType = applyMatchType;
+// exports.getAdGroupResourceId = getAdGroupResourceId;
+// exports.getCampaignNames = getCampaignNames;
+// exports.fetchSearchTerms = fetchSearchTerms;
+// exports.getAdsAppAdGroups = getAdsAppAdGroups;
+// exports.addNegativeKeywordsToAdGroup = addNegativeKeywordsToAdGroup;
+// exports.createKeyword = createKeyword;
+// exports.addKeywordsToAdGroup = addKeywordsToAdGroup;
+// exports.sendReportingEmail = sendReportingEmail;
