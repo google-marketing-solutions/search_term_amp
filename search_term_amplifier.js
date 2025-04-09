@@ -37,16 +37,21 @@
  */
 
 /**
- * @fileoverview This is an Ads Script solution called Search Term Amplifier. It extracts
+ * @fileoverview This is an Ads Script solution called Search Term Amp. It extracts
  * keywords from the search term(query) report and adds the queried keywords to
  * specified campaigns and ad groups.
  *
- * IMPORTANT - Be sure to edit the constants before running this script.
+ * IMPORTANT - Be sure to edit the mandatory parameters before running this script.
  */
 
 /**
- * Constants and Parameters
+ * *********** MANDATORY + BASIC Parameters ***********
  */
+
+/** 
+ * Needed for opearational reasons. Do not update
+ * */
+const today = new Date();
 
 /**
  * Name of this script.
@@ -54,28 +59,81 @@
  *
  * @const {string}
  */
-const SCRIPT_NAME = 'Search Term Amplifier';
+const SCRIPT_NAME = 'Search Term Amp';
 
 /**
- * Array of campaign names where you want to extract keywords from the search
- * term report. It takes search terms from all the nested ad groups. You can set
- * the value to ['__ALL__'] to specify all campaigns should be queried.
- * If set to an empty array (i.e. []), this variable will be ignored, and the
- * ADGROUPS variable will be used.
+ * An array of campaign names to extract search terms from. 
+ * All Ad Groups within these campaigns will be processed.
+ * To include all campaigns, set value to ['__ALL__'] 
+ * If empty, the ADGROUPS constant will be used instead.
  *
  * @const {!Array<string>}
  */
 const CAMPAIGNS = ['__ALL__'];
 
 /**
- * Array of ad group names you want to extract keywords from the search term
- * report. If the length of 'CAMPAIGNS' variable is not 0, this variable will be
- * ignored. Also, when ADD_KEYWORDS_TO_DIFFERENT_ADGROUP is false, keywords will
+ * Array of ad group names to extract search terms from.
+ * this variable will be ignored if  length of 'CAMPAIGNS' variable is not 0.
+ * Also, when ADD_KEYWORDS_TO_DIFFERENT_ADGROUP = true, keywords will
  * be added to these ad groups.
  *
  * @const {!Array<string>}
  */
 const ADGROUPS = ['Ad_group_my_test', 'Ad_group_my_test_2'];
+
+/**
+ * If true, added keywords will be enabled. Otherwise, keywords will be added
+ * in a Paused state. Not applicable for Negative Keywords.
+ *
+ * @const {boolean}
+ */
+const ENABLE_KEYWORDS = true;
+
+/**
+ * GAQL query to extract "high-performing" search terms. 
+ * Leverage Query Builder tool and paste your query in here - available at: 
+ * https://developers.google.com/google-ads/api/fields/v18/search_term_view_query_builder
+ * Also, you can test GAQL output with gaql_test.js, which can also be found in
+ * the project repository.
+ *
+ * @const {string}
+ */
+const GAQL_QUERY_SEARCH_TERM =
+  'SELECT search_term_view.search_term' +
+  ' FROM search_term_view' +
+  ' WHERE metrics.clicks > 0' +
+  ' AND metrics.impressions > 0' +
+  ' AND metrics.conversions > 0' +
+  ' AND segments.date DURING LAST_30_DAYS' +
+  " AND search_term_view.status NOT IN ('ADDED','EXCLUDED')";
+
+/**
+ * Array of labels applied to keywords added by this script (recommended for monitoring & reporting).
+ *
+ * @const {!Array<string>}
+ */
+const LABELS = [`SearchTermAmp_${today.toISOString()}`];
+
+/**
+ * List of mailing addresses to send reporting email to.
+ *
+ * @const {!Array<string>}
+ */
+const MAIL_RECIPIENTS = ['address@email.com'];
+
+
+/**
+ * *********** ADVANCED Parameters - use with caution ***********
+ */
+
+/**
+ * List of words that must not be included in keywords added by the script.
+ * This can be used to ensure certain words are not created as new keywords
+ * while avoiding the use of negative keywords.
+ *
+ * @const {!Array<string>}
+ */
+const IGNORE_WORDS = [];
 
 /**
  * If you want to add keywords to a different ad group than where the search
@@ -95,33 +153,6 @@ const ADD_KEYWORDS_TO_DIFFERENT_ADGROUP = false;
 const ADGROUP_TO_ADD_SEARCH_KEYWORDS = 'Ad_group_my_test';
 
 /**
- * Array of labels applied to keywords added by this script.
- *
- * @const {!Array<string>}
- */
-const today = new Date();
-const LABELS = [`AutoAdded_${today.toISOString()}`];
-
-/**
- * If true, added keywords will be enabled. Otherwise, keywords will be paused.
- *
- * Not applicable for negative keywords.
- *
- * @const {boolean}
- */
-const ENABLE_KEYWORDS = true;
-
-/**
- * If true, keyword status and/or max CPC will be overwitten when the keyword
- * already exists.
- *
- * Not applicable for negative keywords.
- *
- * @const {boolean}
- */
-const OVERWRITE_KEYWORDS = false;
-
-/**
  * Max CPC for keywords added to ad groups. Max CPC is only available for some
  * bid strategies, such as manual CPC.
  *
@@ -130,50 +161,6 @@ const OVERWRITE_KEYWORDS = false;
  * @const {number|boolean}
  */
 const ADDED_KEYWORDS_MAX_CPC = false;
-
-/**
- * Match type for keywords added to ad groups. This should be selected from
- * EXACT, PHRASE, BROAD, or ALL.
- *
- * If ALL is used, a keyword will be added for each of the match types.
- *
- * @const {string}
- */
-const ADDED_KEYWORDS_MATCH_TYPE = 'BROAD';
-
-/**
- * Set true if you want to add negative keywords, not search keywords.
- *
- * @const {boolean}
- */
-const IS_NEGATIVE_KEYWORDS = false;
-
-/**
- * GAQL query to extract search terms (queried keywords). Use the query
- * builder and copy and paste the query.
- *
- * The Google Ads Query Builder is available at
- * https://developers.google.com/google-ads/api/fields/v18/search_term_view_query_builder
- * Also, you can test GAQL output with gaql_test.js, which can also be found in
- * the project repository.
- *
- * @const {string}
- */
-const GAQL_QUERY_SEARCH_TERM =
-  'SELECT search_term_view.search_term' +
-  ' FROM search_term_view' +
-  ' WHERE metrics.clicks > 0' +
-  ' AND metrics.impressions > 0' +
-  ' AND metrics.conversions > 0' +
-  ' AND segments.date DURING LAST_30_DAYS' +
-  " AND search_term_view.status NOT IN ('ADDED')";
-
-/**
- * List of mailing addresses to send reporting email to.
- *
- * @const {!Array<string>}
- */
-const MAIL_RECIPIENTS = [];
 
 /**
  * Set true if you want to add a final URL to keywords. Please implement
@@ -222,14 +209,32 @@ function buildMobileFinalURL(keyword) {
 }
 
 /**
- * List of words that must not be included in keywords added to ad groups.
+ * If true, keyword status and/or max CPC will be overwitten when the keyword
+ * already exists.
  *
- * This can be used to ensure words are not used as keywords while avoiding the
- * use of negative keywords.
+ * Not applicable for negative keywords.
  *
- * @const {!Array<string>}
+ * @const {boolean}
  */
-const IGNORE_WORDS = [];
+const OVERWRITE_KEYWORDS = false;
+
+/**
+ * Set true if you want to add negative keywords, not search keywords.
+ *
+ * @const {boolean}
+ */
+const IS_NEGATIVE_KEYWORDS = false;
+
+/**
+ * Match type for keywords added to ad groups. This should be selected from
+ * EXACT, PHRASE, BROAD, or ALL.
+ *
+ * If ALL is used, a keyword will be added for each of the match types.
+ *
+ * @const {string}
+ */
+const ADDED_KEYWORDS_MATCH_TYPE = 'BROAD';
+
 
 /**
  * Main Function
