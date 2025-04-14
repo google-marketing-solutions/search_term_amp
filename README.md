@@ -1,4 +1,4 @@
- Copyright 2025 Google LLC
+Copyright 2025 Google LLC
 
  Licensed under the Apache License, Version 2.0 (the "License");
  you may not use this file except in compliance with the License.
@@ -18,12 +18,9 @@ Search Term Amplifier is a Google Ads Script solution that extracts keywords
 from the search term(query) report and adds the queried keywords to specified
 campaigns and ad groups.
 
-Please direct all questions, comments, and feedback to
-[gaukey_qa](mailto:gaukey_qa@google.com)
-
 ## Instructions
 
-Please read main script and edit "Constants and Params" section and spreadsheet
+Please read main script and edit "MANDATORY + BASIC Parameters" section
 before running the script.
 
 To deploy the script:
@@ -49,49 +46,39 @@ Running the script will result in keywords being added to the account, if any ap
 
 The following constants can be changed to affect how the script executes. They are also documented in the script itself.
 
-SCRIPT_NAME
-: The name used to identify the script in logs and the results email.
+### MANDATORY + BASIC Parameters
 
-CAMPAIGNS
-: An array of campaign names to extract search terms for. All of the child Ad Groups of the listed campaigns will be included. If all campaigns should be included, you can use `__ALL__` as the only element of the array. If this constant is empty, the `ADGROUPS` constant will be used instead when building the search term report.
+SCRIPT_NAME : The name used to identify the script in logs and the results email.
 
-ADGROUPS
-: Only used if the CAMPAIGNS constant is an empty array. An array of Ad Groups to extract search terms for and to add the resulting keywords too. 
+CAMPAIGNS : An array of Campaign names to extract search terms from. All Ad Groups within these campaigns will be processed. To include all campaigns, set value to ['__ALL__'] . If empty, the ADGROUPS constant will be used instead.
 
-ADD_KEYWORDS_TO_DIFFERENT_ADGROUP
-: A boolean flag to specify that keywords should be added to a specific Ad Group, specified by the `ADGROUP_TO_ADD_SEARCH_KEYWORDS` constant.
+ADGROUPS : An array of Ad Group names to extract search terms from. Only used if the CAMPAIGNS constant is an empty array.
 
-ADGROUP_TO_ADD_SEARCH_KEYWORDS
-: If `ADD_KEYWORDS_TO_DIFFERENT_ADGROUP` is true, new keywords will be added to this Ad Group.
+ENABLE_KEYWORDS : If true, new keywords will be enabled immediately. Otherwise, the keywords are added in a PAUSED state, which allows for a review prior to enabling.
+This is not applicable to negative keywords (which are always enabled).
 
-LABELS
-: An array of labels to apply to the new keywords.
+GAQL_QUERY_SEARCH_TERM : This is where you define the criteria for "High Performance." The GAQL query will be used to extract the applicable search terms. Levarage GAQL Query Builder to help you create a query with a different set of filters, if needed.
 
-ENABLE_KEYWORDS
-: If true, new keywords will be enabled immediately. Otherwise, the keywords are added in a PAUSED state. This is not applicable to negative keywords (which are always enabled).
+LABELS : An array of labels to apply to the new keywords (recommended for monitoring & reporting).
 
-OVERWRITE_KEYWORDS
-: If true, the keywords status and CPC (if applicable) will be overwritten if the keywords already exists. This is not applicable to negative keywords.
+MAIL_RECIPIENTS : An array of email addresses that will receive the results email after the script is executed. No email will be sent if this array is empty.
 
-ADDED_KEYWORDS_MAX_CPC
-: The maximum CPC to set for added keywords. If this is set to `false`, no CPC will be set. This is not applicable to negative keywords.
 
-IS_NEGATIVE_KEYWORDS
-: If this is `true`, new keywords will be added as negative keywords instead of search keywords. We suggest using this sparingly to better allow the Google Ads systems to maximize coverage.
+### Additional Parameters (for advanced use-cases)
 
-GAQL_QUERY_SEARCH_TERM
-: The [GAQL](https://developers.google.com/google-ads/api/docs/query/overview) query to use when creating the search term report. You can use the [GAQL query builder](https://developers.google.com/google-ads/api/fields/v18/search_term_view_query_builder) to create a new query with narrower filters if needed.
+IGNORE_WORDS : An array of terms that will be not be created as new keywords. This can replace negative keywords as means to ensure certain words and phrases are not used. Please note that this is a literal list, and only exact matches will be ignored.
 
-MAIL_RECIPIENTS
-: An array of email addresses that will receive the results email after the script is executed. No email will be sent if this array is empty.
+ADD_KEYWORDS_TO_DIFFERENT_ADGROUP : A boolean flag to specify whether new keywords should be added to a specific Ad Group, specified by the ADGROUP_TO_ADD_SEARCH_KEYWORDS constant.
 
-SET_FINAL_URL
-: If `true`, the function specified by `buildFinalUrl` will be used to set the final URL for new keywords.
+ADGROUP_TO_ADD_SEARCH_KEYWORDS : If ADD_KEYWORDS_TO_DIFFERENT_ADGROUP is true, new keywords will be added to the Ad Group specified here.
 
-SET_MOBILE_FINAL_URL
-: If `true`, the function specified by `buildMobileFinalUrl` will be used to set the final mobile URL for new keywords.
+ADDED_KEYWORDS_MAX_CPC : The maximum CPC to set for added keywords. If this is set to false, no CPC will be set. This is not applicable to negative keywords.
 
-IGNORE_WORDS
-: An array of terms that will be not be used when creating new keywords. This can be used instead of negative keywords to ensure certain words and phrases are not used. Please note that this is a literal list, and only exact matches will be ignored. 
+SET_FINAL_URL : If true, the function specified by buildFinalUrl will be used to set the final URL for new keywords.
 
+SET_MOBILE_FINAL_URL : If true, the function specified by buildMobileFinalUrl will be used to set the final mobile URL for new keywords.
+
+OVERWRITE_KEYWORDS : If true, the keywords status and CPC (if applicable) will be overwritten if the keywords already exists. This is not applicable to negative keywords.
+
+IS_NEGATIVE_KEYWORDS : If this is true, new keywords will be added as negative keywords instead of search keywords. We suggest using this sparingly to better allow the Google Ads systems to maximize coverage.
 
