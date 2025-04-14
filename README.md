@@ -12,9 +12,9 @@ Copyright 2025 Google LLC
  See the License for the specific language governing permissions and
  limitations under the License.
 
-# Search Term Amplifier
+# Search Term Amp
 
-Search Term Amplifier is a Google Ads Script solution that extracts keywords
+Search Term Amp is a Google Ads Script solution that extracts keywords
 from the search term(query) report and adds the queried keywords to specified
 campaigns and ad groups.
 
