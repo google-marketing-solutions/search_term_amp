@@ -82,6 +82,8 @@ MAIL_RECIPIENTS : An array of email addresses that will receive the results
 email after the script is executed. No email will be sent if this array is
 empty.
 
+SPREADSHEET_ID : Export the execution report into a Google Spreadsheet by adding the Sheet ID here (Sheet ID is the portion of the  URL between /d/ and /edit ). Will be ignored if left blank.
+
 ### Additional Parameters (for advanced use-cases)
 
 IGNORE_WORDS : An array of terms that will be not be created as new keywords.
