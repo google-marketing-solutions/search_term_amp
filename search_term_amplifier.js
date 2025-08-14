@@ -121,6 +121,15 @@ const LABELS = [`SearchTermAmp_${today.toISOString()}`];
  */
 const MAIL_RECIPIENTS = ['address@email.com'];
 
+/**
+ * OPTIONAL: ID of the Google Sheet to write output to. The Sheet ID is the
+ * portion of the  URL between /d/ and /edit. For example, if the sheet's URL
+ * is https://docs.google.com/spreadsheets/d/ABC123/edit, the ID is 'ABC123'.
+ * Leave blank if not needed.
+ *
+ * @const {string}
+ */
+const SPREADSHEET_ID = '';
 
 /**
  * *********** ADVANCED Parameters - use with caution ***********
@@ -335,6 +344,10 @@ function main() {
 
   if (MAIL_RECIPIENTS.length > 0) {
       sendReportingEmail(SCRIPT_NAME, MAIL_RECIPIENTS, createdKeywords, errors);
+  }
+
+  if (SPREADSHEET_ID.trim() !== '') {
+    writeResultsToSheet(SPREADSHEET_ID, SCRIPT_NAME, createdKeywords, errors);
   }
 }
 
@@ -872,6 +885,71 @@ function sendReportingEmail(scriptName, recipients, keywordList, errors) {
   });
 
   Logger.log('Reporting mail sent');
+}
+/**
+ * Writes the results of the script to a Google Sheet.
+ *
+ * A new tab is created for each run. The first row contains a header with
+ * the run details. The subsequent rows contain the added keywords, if any.
+ * Finally, errors are appended to the bottom of the sheet.
+ *
+ * @param {string} sheetId The ID of the Google Sheet to write the results to.
+ * @param {string} scriptName The name of the script being run.
+ * @param {!Array<!AdsApp.Keyword>} keywordList The keywords added to the account.
+ * @param {!Array<string>} errors The errors raised during execution.
+ */
+function writeResultsToSheet(sheetId, scriptName, keywordList, errors) {
+  const accountName = AdsApp.currentAccount().getName();
+  const customerId = AdsApp.currentAccount().getCustomerId();
+
+  try {
+    const now = new Date();
+    const sheetName = `${SCRIPT_NAME} ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+    const sheet = SpreadsheetApp.openById(sheetId).insertSheet(sheetName);
+
+    let header = '';
+    if (keywordList.length === 0 && errors.length > 0) {
+      header = '[FAILED]';
+    } else if (errors.length > 0) {
+      header = '[SUCCEEDED with errors]';
+    } else {
+      header = '[SUCCEEDED]';
+    }
+    header += ` Ads scripts: ${scriptName} executed on ${accountName}: ${customerId}`;
+
+    const headerCell = sheet.getRange(1, 1);
+    headerCell.setValue(`${now.toLocaleString()}: ${header}`);
+
+    const rows = [];
+    if (keywordList.length > 0) {
+      rows.push(['Campaign Id', 'Campaign Name', 'Ad Group Id', 'Ad Group Name', 'Keyword Text', 'Match Type']);
+      for (const keyword of keywordList) {
+        rows.push([
+          keyword.getCampaign().getId(),
+          keyword.getCampaign().getName(),
+          keyword.getAdGroup().getId(),
+          keyword.getAdGroup().getName(),
+          keyword.getText(),
+          keyword.getMatchType(),
+        ]);
+      }
+      const dataRange = sheet.getRange(2, 1, rows.length, 6);
+      dataRange.setValues(rows);
+    }
+
+    if (errors.length > 0) {
+      const nextRow = sheet.getLastRow() + 2; // Add some space
+      const errorHeader = sheet.getRange(nextRow - 1, 1);
+      errorHeader.setValue('Errors:').setFontWeight('bold');
+      const errorRange = sheet.getRange(nextRow, 1, errors.length, 1);
+      const errorArray = errors.map((e) => [e]);
+      errorRange.setValues(errorArray);
+    }
+
+    Logger.log('Results written to sheet with ID %s', sheetId);
+  } catch (e) {
+    Logger.log('Failed to write to spreadsheet with ID %s. Error: %s', sheetId, e);
+  }
 }
 
 // Exports are only needed for unit testing and MUST be removed for deployment.
