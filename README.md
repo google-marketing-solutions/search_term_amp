@@ -86,6 +86,10 @@ SPREADSHEET_ID : Export the execution report into a Google Spreadsheet by adding
 
 ### Additional Parameters (for advanced use-cases)
 
+FILTER_PAUSED_CAMPAIGNS : Determines whether the script should process campaigns that are currently in a Paused state. This setting is particularly useful when the CAMPAIGNS parameter is set to ['__ALL__'].
+Set to 'TRUE' (default) to skip all paused campaigns and only analyze search terms from Enabled campaigns.
+Set to 'FALSE' if you have a specific need to analyze or add keywords to ad groups within paused campaigns (e.g., preparing a paused campaign for re-activation).
+
 IGNORE_WORDS : An array of terms that will be not be created as new keywords.
 This can replace negative keywords as a means to ensure certain words and
 phrases are not used. Please note that this is a literal list, and only exact

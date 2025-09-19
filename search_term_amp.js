@@ -136,6 +136,15 @@ const SPREADSHEET_ID = '';
  */
 
 /**
+ * If true, campaigns in Paused state will be ignored.
+ * Default is 'true' mainly for runtime considerations, but
+ * can be set to 'false' to include Paused campaigns
+ *
+ * @const {boolean}
+ */
+const FILTER_PAUSED_CAMPAIGNS = true;
+
+/**
  * List of words that must not be included in keywords added by the script.
  * This can be used to ensure certain words are not created as new keywords
  * while avoiding the use of negative keywords.
@@ -412,10 +421,14 @@ function getAdGroupResourceId(adGroup) {
  */
 function getCampaignNames() {
   const campaignNames = [];
-  const campaigns = AdsApp.campaigns();
+  const campaignIterator = AdsApp.campaigns().get();
 
-  for (const c of campaigns) {
-    campaignNames.push(c.getName());
+  if (FILTER_PAUSED_CAMPAIGNS) Logger.log('Ignoring Paused campaigns');
+  for (const campaign of campaignIterator) {
+    if (FILTER_PAUSED_CAMPAIGNS && !campaign.isEnabled()) {
+      continue; // Skip this campaign and move to the next one
+    }
+    campaignNames.push(campaign.getName());
   }
 
   Logger.log('All campaigns found: %s', campaignNames);
